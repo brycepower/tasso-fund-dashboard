@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tasso Capital Fund Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #0D1B2A 0%, #1B263B 100%);
+            color: #FFFFFF;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { font-size: 32px; text-align: center; margin-bottom: 5px; }
+        .subtitle { color: #7FAECD; text-align: center; font-size: 14px; margin-bottom: 30px; }
+        .tabs { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab {
+            padding: 12px 24px;
+            background: #1E3A5F;
+            border: none;
+            border-radius: 8px;
+            color: #FFFFFF;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .tab.active { background: #4A90D9; }
+        .tab:hover { opacity: 0.8; }
+        .controls {
+            background: #1E3A5F;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #4A90D9;
+        }
+        .controls h3 { color: #7FAECD; margin-bottom: 15px; font-size: 16px; }
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .control-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #D0DCE8;
+        }
+        .control-item input[type="range"] {
+            width: 100%;
+            accent-color: #4A90D9;
+        }
+        .content { display: none; }
+        .content.active { display: block; }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: #1E3A5F;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .metric-label { font-size: 12px; color: #D0DCE8; margin-bottom: 8px; }
+        .metric-value { font-size: 24px; font-weight: bold; }
+        .section {
+            background: #1E3A5F;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .section h3 { margin-bottom: 15px; font-size: 18px; }
+        .waterfall-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            background: #0D1B2A;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .waterfall-step {
+            font-size: 14px;
+            color: #F0A500;
+            font-weight: bold;
+            margin: 15px 0 15px 20px;
+        }
+        .waterfall-indent {
+            border-left: 3px solid;
+            padding-left: 20px;
+            margin-bottom: 10px;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; }
+        th { color: #F0A500; border-bottom: 2px solid #4A90D9; }
+        td { color: #D0DCE8; border-bottom: 1px solid #2D3748; }
+        .input-box {
+            width: 100%;
+            padding: 8px;
+            background: #0D1B2A;
+            border: 1px solid #4A90D9;
+            border-radius: 4px;
+            color: #FFFFFF;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TASSO CAPITAL PEDIATRIC FUND</h1>
+        <div class="subtitle">Fund Analytics Dashboard · Interactive Scenario Modeling</div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('portfolio')">Portfolio Overview</button>
+            <button class="tab" onclick="showTab('waterfall')">Waterfall Analysis</button>
+            <button class="tab" onclick="showTab('scenarios')">Growth Scenarios</button>
+            <button class="tab" onclick="showTab('simulator')">Acquisition Simulator</button>
+        </div>
+
+        <div class="controls">
+            <h3>Interactive Controls</h3>
+            <div class="control-grid">
+                <div class="control-item">
+                    <label>Growth Rate: <span id="growthDisplay">10</span>%</label>
+                    <input type="range" id="growthRate" min="5" max="25" value="10" oninput="updateCalculations()">
+                </div>
+                <div class="control-item">
+                    <label>Total Clinics: <span id="clinicsDisplay">15</span></label>
+                    <input type="range" id="numClinics" min="5" max="30" value="15" oninput="updateCalculations()">
+                </div>
+                <div class="control-item">
+                    <label>CF per New Clinic: $<span id="cfDisplay">250</span>K</label>
+                    <input type="range" id="cfPerClinic" min="150" max="400" step="10" value="250" oninput="updateCalculations()">
+                </div>
+                <div class="control-item">
+                    <label>Exit Multiple: <span id="exitDisplay">5</span>x</label>
+                    <input type="range" id="exitMultiple" min="4" max="8" step="0.5" value="5" oninput="updateCalculations()">
+                </div>
+            </div>
+        </div>
+
+        <!-- Portfolio Tab -->
+        <div id="portfolio" class="content active">
+            <div class="metrics-grid" id="portfolioMetrics"></div>
+            <div class="section">
+                <h3>Portfolio Composition</h3>
+                <div class="metrics-grid" id="portfolioComposition"></div>
+            </div>
+        </div>
+
+        <!-- Waterfall Tab -->
+        <div id="waterfall" class="content">
+            <div class="section">
+                <h3>Cash Flow Waterfall (5 Years)</h3>
+                <div id="waterfallContent"></div>
+            </div>
+            <div class="section">
+                <h3 id="exitTitle">Exit Value Analysis (5x EBITDA)</h3>
+                <div class="metrics-grid" id="exitMetrics"></div>
+            </div>
+        </div>
+
+        <!-- Scenarios Tab -->
+        <div id="scenarios" class="content">
+            <div class="section">
+                <h3>Compare Growth Scenarios</h3>
+                <div style="overflow-x: auto;">
+                    <table id="scenariosTable"></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Simulator Tab -->
+        <div id="simulator" class="content">
+            <div class="section">
+                <h3>What-If Analysis</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h4 style="color: #7FAECD; font-size: 14px; margin-bottom: 10px;">Scenario Inputs</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div>
+                                <label style="display: block; font-size: 12px; color: #D0DCE8; margin-bottom: 5px;">Total Clinics</label>
+                                <input type="number" class="input-box" id="simClinics" value="15" oninput="updateCalculations()">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 12px; color: #D0DCE8; margin-bottom: 5px;">EBITDA per Clinic ($)</label>
+                                <input type="number" class="input-box" id="simCF" value="250000" oninput="updateCalculations()">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="simulatorResults"></div>
+                </div>
+            </div>
+            <div class="section">
+                <h3>Dr. Timi Contingency Tracker</h3>
+                <div id="contingencyTracker" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONSTANTS = {
+            drTimiClinics: 5,
+            drTimiEBITDA: 869875,
+            fundOwnership: 0.51,
+            foundingTeamOwnership: 0.49,
+            fundSize: 7500000,
+            prefRate: 0.12
+        };
+
+        function formatMoney(val) {
+            return '$' + (val / 1000000).toFixed(2) + 'M';
+        }
+
+        function formatPercent(val) {
+            return val.toFixed(1) + '%';
+        }
+
+        function calculateMetrics() {
+            const growthRate = parseFloat(document.getElementById('growthRate').value) / 100;
+            const numClinics = parseInt(document.getElementById('numClinics').value);
+            const cfPerClinic = parseInt(document.getElementById('cfPerClinic').value) * 1000;
+            const exitMultiple = parseFloat(document.getElementById('exitMultiple').value);
+
+            const newClinics = numClinics - CONSTANTS.drTimiClinics;
+            const newClinicsEBITDA = newClinics * cfPerClinic;
+            const totalEBITDA = CONSTANTS.drTimiEBITDA + newClinicsEBITDA;
+
+            let totalPortfolioCF = 0;
+            for (let year = 1; year <= 5; year++) {
+                totalPortfolioCF += totalEBITDA * Math.pow(1 + growthRate, year);
+            }
+
+            const totalFundCF = totalPortfolioCF * CONSTANTS.fundOwnership;
+            const totalFoundingTeamCF = totalPortfolioCF * CONSTANTS.foundingTeamOwnership;
+
+            const totalPref = CONSTANTS.fundSize * CONSTANTS.prefRate * 5;
+            const excessCF = totalFundCF - totalPref;
+            const lpCarry = excessCF * 0.5;
+            const gpCarry = excessCF * 0.5;
+            const totalLPDist = totalPref + lpCarry;
+            const lpCoC = (totalLPDist / CONSTANTS.fundSize) * 100;
+
+            const year5EBITDA = totalEBITDA * Math.pow(1 + growthRate, 5);
+            const msoValue = year5EBITDA * exitMultiple;
+            const fundExitValue = msoValue * CONSTANTS.fundOwnership;
+            const foundingTeamExitValue = msoValue * CONSTANTS.foundingTeamOwnership;
+
+            return {
+                growthRate,
+                numClinics,
+                newClinics,
+                newClinicsEBITDA,
+                totalEBITDA,
+                totalPortfolioCF,
+                totalFundCF,
+                totalFoundingTeamCF,
+                totalPref,
+                excessCF,
+                lpCarry,
+                gpCarry,
+                totalLPDist,
+                lpCoC,
+                year5EBITDA,
+                msoValue,
+                fundExitValue,
+                foundingTeamExitValue,
+                exitMultiple
+            };
+        }
+
+        function updatePortfolioTab(metrics) {
+            const metricsHTML = [
+                { label: 'Total Clinics', value: metrics.numClinics, color: '#4A90D9' },
+                { label: 'Portfolio EBITDA', value: formatMoney(metrics.totalEBITDA), color: '#70AD47' },
+                { label: 'Fund Size', value: formatMoney(CONSTANTS.fundSize), color: '#9B59B6' },
+                { label: 'Founding Team (49%)', value: formatMoney(metrics.totalFoundingTeamCF), color: '#E67E22' },
+                { label: 'Fund CF (51%)', value: formatMoney(metrics.totalFundCF), color: '#4A90D9' },
+                { label: 'LP Cash-on-Cash', value: formatPercent(metrics.lpCoC), color: '#F0A500' }
+            ].map(m => `
+                <div class="metric-card" style="border: 2px solid ${m.color}">
+                    <div class="metric-label">${m.label}</div>
+                    <div class="metric-value" style="color: ${m.color}">${m.value}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('portfolioMetrics').innerHTML = metricsHTML;
+
+            const compHTML = `
+                <div>
+                    <div class="metric-label">Dr. Timi's Clinics</div>
+                    <div style="font-size: 20px; font-weight: bold; color: #70AD47;">${CONSTANTS.drTimiClinics} clinics</div>
+                    <div style="font-size: 14px; color: #7FAECD;">$${(CONSTANTS.drTimiEBITDA / 1000).toFixed(0)}K EBITDA</div>
+                </div>
+                <div>
+                    <div class="metric-label">New Acquisitions</div>
+                    <div style="font-size: 20px; font-weight: bold; color: #4A90D9;">${metrics.newClinics} clinics</div>
+                    <div style="font-size: 14px; color: #7FAECD;">${formatMoney(metrics.newClinicsEBITDA)} EBITDA</div>
+                </div>
+                <div>
+                    <div class="metric-label">Total Portfolio</div>
+                    <div style="font-size: 20px; font-weight: bold; color: #F0A500;">${metrics.numClinics} clinics</div>
+                    <div style="font-size: 14px; color: #7FAECD;">${formatMoney(metrics.totalEBITDA)} EBITDA</div>
+                </div>
+            `;
+            document.getElementById('portfolioComposition').innerHTML = compHTML;
+        }
+
+        function updateWaterfallTab(metrics) {
+            const waterfallHTML = `
+                <div class="waterfall-item">
+                    <span style="color: #D0DCE8;">Total Portfolio Cash Flow (5 years)</span>
+                    <span style="font-size: 18px; font-weight: bold; color: #70AD47;">${formatMoney(metrics.totalPortfolioCF)}</span>
+                </div>
+                <div class="waterfall-step">↓ FIRST: MSO Ownership Split</div>
+                <div class="waterfall-indent" style="border-color: #E67E22;">
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                        <span style="color: #D0DCE8;">Founding Team (49% of MSO)</span>
+                        <span style="font-size: 16px; font-weight: bold; color: #E67E22;">${formatMoney(metrics.totalFoundingTeamCF)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                        <span style="color: #D0DCE8;">Fund (51% of MSO)</span>
+                        <span style="font-size: 16px; font-weight: bold; color: #4A90D9;">${formatMoney(metrics.totalFundCF)}</span>
+                    </div>
+                </div>
+                <div class="waterfall-step">↓ THEN: Fund's 51% Goes Through LP/GP Waterfall</div>
+                <div class="waterfall-indent" style="border-color: #4A90D9;">
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                        <span style="color: #D0DCE8;">Less: LP Preferred Return (12% × 5 years)</span>
+                        <span style="font-size: 16px; font-weight: bold; color: #4A90D9;">(${formatMoney(metrics.totalPref)})</span>
+                    </div>
+                </div>
+                <div class="waterfall-item">
+                    <span style="color: #D0DCE8;">Excess Cash Flow (after pref)</span>
+                    <span style="font-size: 18px; font-weight: bold; color: #9B59B6;">${formatMoney(metrics.excessCF)}</span>
+                </div>
+                <div class="waterfall-indent" style="border-color: #F0A500;">
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                        <span style="color: #D0DCE8;">LP Carry (50% of excess)</span>
+                        <span style="font-size: 16px; font-weight: bold; color: #70AD47;">${formatMoney(metrics.lpCarry)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                        <span style="color: #D0DCE8;">GP Carry (50% of excess)</span>
+                        <span style="font-size: 16px; font-weight: bold; color: #E67E22;">${formatMoney(metrics.gpCarry)}</span>
+                    </div>
+                </div>
+                <div class="waterfall-item" style="background: #70AD47;">
+                    <span style="font-weight: bold;">Total LP Distributions</span>
+                    <span style="font-size: 20px; font-weight: bold;">${formatMoney(metrics.totalLPDist)}</span>
+                </div>
+                <div class="waterfall-item" style="border: 2px solid #F0A500;">
+                    <span style="font-weight: bold; color: #F0A500;">LP Cash-on-Cash Return</span>
+                    <span style="font-size: 20px; font-weight: bold; color: #F0A500;">${formatPercent(metrics.lpCoC)}</span>
+                </div>
+            `;
+            document.getElementById('waterfallContent').innerHTML = waterfallHTML;
+
+            document.getElementById('exitTitle').textContent = `Exit Value Analysis (${metrics.exitMultiple}x EBITDA)`;
+
+            const exitHTML = [
+                { label: 'Year 5 EBITDA', value: formatMoney(metrics.year5EBITDA), color: '#70AD47' },
+                { label: 'Total MSO Value', value: formatMoney(metrics.msoValue), color: '#F0A500' },
+                { label: 'Fund Exit Value (51%)', value: formatMoney(metrics.fundExitValue), color: '#4A90D9' },
+                { label: 'Founding Team Value (49%)', value: formatMoney(metrics.foundingTeamExitValue), color: '#E67E22' }
+            ].map(m => `
+                <div style="padding: 15px; background: #0D1B2A; border-radius: 8px; ${m.label.includes('Fund') || m.label.includes('Founding') ? 'border: 2px solid ' + m.color : ''}">
+                    <div style="font-size: 12px; color: #D0DCE8; margin-bottom: 8px;">${m.label}</div>
+                    <div style="font-size: 24px; font-weight: bold; color: ${m.color};">${m.value}</div>
+                </div>
+            `).join('');
+            document.getElementById('exitMetrics').innerHTML = exitHTML;
+        }
+
+        function updateScenariosTab(metrics) {
+            let tableHTML = `
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th style="text-align: center;">5% Growth</th>
+                        <th style="text-align: center;">10% Growth</th>
+                        <th style="text-align: center;">15% Growth</th>
+                        <th style="text-align: center;">20% Growth</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            const rates = [5, 10, 15, 20];
+            
+            // Year 5 EBITDA row
+            tableHTML += '<tr><td style="color: #FFFFFF;">Year 5 EBITDA</td>';
+            rates.forEach(rate => {
+                const year5 = metrics.totalEBITDA * Math.pow(1 + rate/100, 5);
+                tableHTML += `<td style="text-align: center; color: #70AD47;">${formatMoney(year5)}</td>`;
+            });
+            tableHTML += '</tr>';
+
+            // LP CoC row
+            tableHTML += '<tr><td style="color: #FFFFFF;">LP Cash-on-Cash</td>';
+            rates.forEach(rate => {
+                const g = rate / 100;
+                let totalPortfolioCF = 0;
+                for (let year = 1; year <= 5; year++) {
+                    totalPortfolioCF += metrics.totalEBITDA * Math.pow(1 + g, year);
+                }
+                const totalFundCF = totalPortfolioCF * CONSTANTS.fundOwnership;
+                const pref = CONSTANTS.fundSize * CONSTANTS.prefRate * 5;
+                const excess = totalFundCF - pref;
+                const lpCarry = excess * 0.5;
+                const totalLP = pref + lpCarry;
+                const coC = (totalLP / CONSTANTS.fundSize) * 100;
+                tableHTML += `<td style="text-align: center; color: #4A90D9; font-weight: bold;">${formatPercent(coC)}</td>`;
+            });
+            tableHTML += '</tr>';
+
+            // Exit value row
+            tableHTML += '<tr><td style="color: #FFFFFF;">MSO Exit Value (' + metrics.exitMultiple + 'x)</td>';
+            rates.forEach(rate => {
+                const year5 = metrics.totalEBITDA * Math.pow(1 + rate/100, 5);
+                const msoVal = year5 * metrics.exitMultiple;
+                tableHTML += `<td style="text-align: center; color: #F0A500; font-weight: bold;">${formatMoney(msoVal)}</td>`;
+            });
+            tableHTML += '</tr>';
+
+            tableHTML += '</tbody>';
+            document.getElementById('scenariosTable').innerHTML = tableHTML;
+        }
+
+        function updateSimulatorTab(metrics) {
+            const simHTML = `
+                <div>
+                    <h4 style="color: #7FAECD; font-size: 14px; margin-bottom: 10px;">Impact Summary</h4>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="padding: 12px; background: #0D1B2A; border-radius: 8px;">
+                            <div style="font-size: 12px; color: #D0DCE8;">Total Portfolio EBITDA</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #70AD47;">${formatMoney(metrics.totalEBITDA)}</div>
+                        </div>
+                        <div style="padding: 12px; background: #0D1B2A; border-radius: 8px;">
+                            <div style="font-size: 12px; color: #D0DCE8;">LP Returns (distributions only)</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #4A90D9;">${formatPercent(metrics.lpCoC)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('simulatorResults').innerHTML = simHTML;
+
+            const contingencyHTML = `
+                <div style="padding: 15px; background: #0D1B2A; border-radius: 8px; border: 2px solid #70AD47;">
+                    <div style="font-size: 14px; color: #D0DCE8; margin-bottom: 10px;">$1.1M Cash Target</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Required: 22% annual growth</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Year 3 Target: $1,579,561</div>
+                    <div style="font-size: 18px; font-weight: bold; color: ${metrics.growthRate >= 0.22 ? '#70AD47' : '#E67E22'};">
+                        Current: ${(metrics.growthRate * 100).toFixed(0)}% growth
+                        ${metrics.growthRate >= 0.22 ? ' ✓' : ' (Below target)'}
+                    </div>
+                </div>
+                <div style="padding: 15px; background: #0D1B2A; border-radius: 8px; border: 2px solid #E67E22;">
+                    <div style="font-size: 14px; color: #D0DCE8; margin-bottom: 10px;">$1.1M Earnout Target</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Required: 41% annual growth</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Year 3 Target: $2,438,452</div>
+                    <div style="font-size: 18px; font-weight: bold; color: ${metrics.growthRate >= 0.41 ? '#70AD47' : '#E67E22'};">
+                        Current: ${(metrics.growthRate * 100).toFixed(0)}% growth
+                        ${metrics.growthRate >= 0.41 ? ' ✓' : ' (Below target)'}
+                    </div>
+                </div>
+            `;
+            document.getElementById('contingencyTracker').innerHTML = contingencyHTML;
+        }
+
+        function updateCalculations() {
+            // Update displays
+            document.getElementById('growthDisplay').textContent = document.getElementById('growthRate').value;
+            document.getElementById('clinicsDisplay').textContent = document.getElementById('numClinics').value;
+            document.getElementById('cfDisplay').textContent = document.getElementById('cfPerClinic').value;
+            document.getElementById('exitDisplay').textContent = document.getElementById('exitMultiple').value;
+
+            // Sync simulator inputs
+            document.getElementById('simClinics').value = document.getElementById('numClinics').value;
+            document.getElementById('simCF').value = parseInt(document.getElementById('cfPerClinic').value) * 1000;
+
+            const metrics = calculateMetrics();
+
+            updatePortfolioTab(metrics);
+            updateWaterfallTab(metrics);
+            updateScenariosTab(metrics);
+            updateSimulatorTab(metrics);
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            updateCalculations();
+        };
+    </script>
+</body>
+</html>
