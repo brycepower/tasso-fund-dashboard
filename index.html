@@ -57,7 +57,7 @@
         .content.active { display: block; }
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmin(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -257,7 +257,7 @@
             const newClinicsCashFlow = newClinics * cfPerClinic;
 
             const year1 = totalCashFlow * (1 + growthRate);
-            const year2 = (totalCashFlow * growthRate) + year1;
+            const year2 = year1 * (1 + growthRate);
             const year3 = year2 * (1 + growthRate);
             const year4 = year3 * (1 + growthRate);
             const year5 = year4 * (1 + growthRate);
@@ -419,7 +419,7 @@
             rates.forEach(rate => {
                 const g = rate / 100;
                 const year1 = metrics.totalCashFlow * (1 + g);
-                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year2 = year1 * (1 + g);
                 const year3 = year2 * (1 + g);
                 const year4 = year3 * (1 + g);
                 const year5 = year4 * (1 + g);
@@ -440,7 +440,7 @@
             rates.forEach(rate => {
                 const g = rate / 100;
                 const year1 = metrics.totalCashFlow * (1 + g);
-                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year2 = year1 * (1 + g);
                 const year3 = year2 * (1 + g);
                 const year4 = year3 * (1 + g);
                 const year5 = year4 * (1 + g);
@@ -455,7 +455,7 @@
             rates.forEach(rate => {
                 const g = rate / 100;
                 const year1 = metrics.totalCashFlow * (1 + g);
-                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year2 = year1 * (1 + g);
                 const year3 = year2 * (1 + g);
                 const year4 = year3 * (1 + g);
                 const year5 = year4 * (1 + g);
@@ -472,7 +472,7 @@
             rates.forEach(rate => {
                 const g = rate / 100;
                 const year1 = metrics.totalCashFlow * (1 + g);
-                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year2 = year1 * (1 + g);
                 const year3 = year2 * (1 + g);
                 const year4 = year3 * (1 + g);
                 const year5 = year4 * (1 + g);
@@ -523,7 +523,7 @@
             rates.forEach(rate => {
                 const g = rate / 100;
                 const year1 = metrics.totalCashFlow * (1 + g);
-                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year2 = year1 * (1 + g);
                 const year5calc = year2 * Math.pow(1 + g, 3);
                 tableHTML += `<td style="text-align: center; color: #70AD47;">${formatMoney(year5calc)}</td>`;
             });
@@ -533,7 +533,7 @@
             rates.forEach(rate => {
                 const g = rate / 100;
                 const year1 = metrics.totalCashFlow * (1 + g);
-                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year2 = year1 * (1 + g);
                 const year3 = year2 * (1 + g);
                 const year4 = year3 * (1 + g);
                 const year5 = year4 * (1 + g);
