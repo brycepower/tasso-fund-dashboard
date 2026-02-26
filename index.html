@@ -57,7 +57,7 @@
         .content.active { display: block; }
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmin(200px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -144,7 +144,6 @@
             </div>
         </div>
 
-        <!-- Portfolio Tab -->
         <div id="portfolio" class="content active">
             <div class="metrics-grid" id="portfolioMetrics"></div>
             <div class="section">
@@ -153,7 +152,6 @@
             </div>
         </div>
 
-        <!-- Waterfall Tab -->
         <div id="waterfall" class="content">
             <div class="section">
                 <h3>Cash Flow Waterfall (5 Years)</h3>
@@ -165,7 +163,6 @@
             </div>
         </div>
 
-        <!-- Scenarios Tab -->
         <div id="scenarios" class="content">
             <div class="section">
                 <h3>Compare Growth Scenarios</h3>
@@ -175,7 +172,6 @@
             </div>
         </div>
 
-        <!-- Simulator Tab -->
         <div id="simulator" class="content">
             <div class="section">
                 <h3>What-If Analysis</h3>
@@ -206,7 +202,8 @@
     <script>
         const CONSTANTS = {
             drTimiClinics: 5,
-            drTimiEBITDA: 869875,
+            drTimiCashFlow: 870000,
+            baseCashFlow: 3376833,
             fundOwnership: 0.51,
             foundingTeamOwnership: 0.49,
             fundSize: 7500000,
@@ -221,23 +218,57 @@
             return val.toFixed(1) + '%';
         }
 
+        function calculateIRR(cashFlows, guess = 0.1) {
+            const maxIterations = 100;
+            const tolerance = 0.00001;
+            
+            let irr = guess;
+            
+            for (let i = 0; i < maxIterations; i++) {
+                let npv = 0;
+                let dnpv = 0;
+                
+                for (let t = 0; t < cashFlows.length; t++) {
+                    npv += cashFlows[t] / Math.pow(1 + irr, t);
+                    dnpv += -t * cashFlows[t] / Math.pow(1 + irr, t + 1);
+                }
+                
+                const newIrr = irr - npv / dnpv;
+                
+                if (Math.abs(newIrr - irr) < tolerance) {
+                    return newIrr;
+                }
+                
+                irr = newIrr;
+            }
+            
+            return irr;
+        }
+
         function calculateMetrics() {
             const growthRate = parseFloat(document.getElementById('growthRate').value) / 100;
             const numClinics = parseInt(document.getElementById('numClinics').value);
             const cfPerClinic = parseInt(document.getElementById('cfPerClinic').value) * 1000;
             const exitMultiple = parseFloat(document.getElementById('exitMultiple').value);
 
+            const totalCashFlow = CONSTANTS.baseCashFlow;
+            
             const newClinics = numClinics - CONSTANTS.drTimiClinics;
-            const newClinicsEBITDA = newClinics * cfPerClinic;
-            const totalEBITDA = CONSTANTS.drTimiEBITDA + newClinicsEBITDA;
+            const newClinicsCashFlow = newClinics * cfPerClinic;
 
-            let totalPortfolioCF = 0;
-            for (let year = 1; year <= 5; year++) {
-                totalPortfolioCF += totalEBITDA * Math.pow(1 + growthRate, year);
-            }
+            const year1 = totalCashFlow * (1 + growthRate);
+            const year2 = (totalCashFlow * growthRate) + year1;
+            const year3 = year2 * (1 + growthRate);
+            const year4 = year3 * (1 + growthRate);
+            const year5 = year4 * (1 + growthRate);
+            
+            const totalPortfolioCF = year1 + year2 + year3 + year4 + year5;
 
             const totalFundCF = totalPortfolioCF * CONSTANTS.fundOwnership;
             const totalFoundingTeamCF = totalPortfolioCF * CONSTANTS.foundingTeamOwnership;
+
+            const cashFlowsForIRR = [-CONSTANTS.fundSize, year1, year2, year3, year4, year5];
+            const irr = calculateIRR(cashFlowsForIRR);
 
             const totalPref = CONSTANTS.fundSize * CONSTANTS.prefRate * 5;
             const excessCF = totalFundCF - totalPref;
@@ -246,8 +277,8 @@
             const totalLPDist = totalPref + lpCarry;
             const lpCoC = (totalLPDist / CONSTANTS.fundSize) * 100;
 
-            const year5EBITDA = totalEBITDA * Math.pow(1 + growthRate, 5);
-            const msoValue = year5EBITDA * exitMultiple;
+            const year5CashFlow = totalCashFlow * Math.pow(1 + growthRate, 5);
+            const msoValue = year5CashFlow * exitMultiple;
             const fundExitValue = msoValue * CONSTANTS.fundOwnership;
             const foundingTeamExitValue = msoValue * CONSTANTS.foundingTeamOwnership;
 
@@ -255,8 +286,8 @@
                 growthRate,
                 numClinics,
                 newClinics,
-                newClinicsEBITDA,
-                totalEBITDA,
+                newClinicsCashFlow,
+                totalCashFlow,
                 totalPortfolioCF,
                 totalFundCF,
                 totalFoundingTeamCF,
@@ -266,7 +297,8 @@
                 gpCarry,
                 totalLPDist,
                 lpCoC,
-                year5EBITDA,
+                irr,
+                year5CashFlow,
                 msoValue,
                 fundExitValue,
                 foundingTeamExitValue,
@@ -277,11 +309,12 @@
         function updatePortfolioTab(metrics) {
             const metricsHTML = [
                 { label: 'Total Clinics', value: metrics.numClinics, color: '#4A90D9' },
-                { label: 'Portfolio EBITDA', value: formatMoney(metrics.totalEBITDA), color: '#70AD47' },
+                { label: 'Portfolio Cash Flow', value: formatMoney(metrics.totalCashFlow), color: '#70AD47' },
                 { label: 'Fund Size', value: formatMoney(CONSTANTS.fundSize), color: '#9B59B6' },
                 { label: 'Founding Team (49%)', value: formatMoney(metrics.totalFoundingTeamCF), color: '#E67E22' },
                 { label: 'Fund CF (51%)', value: formatMoney(metrics.totalFundCF), color: '#4A90D9' },
-                { label: 'LP Cash-on-Cash', value: formatPercent(metrics.lpCoC), color: '#F0A500' }
+                { label: 'LP Cash-on-Cash', value: formatPercent(metrics.lpCoC), color: '#F0A500' },
+                { label: 'IRR', value: formatPercent(metrics.irr * 100), color: '#9B59B6' }
             ].map(m => `
                 <div class="metric-card" style="border: 2px solid ${m.color}">
                     <div class="metric-label">${m.label}</div>
@@ -295,17 +328,17 @@
                 <div>
                     <div class="metric-label">Dr. Timi's Clinics</div>
                     <div style="font-size: 20px; font-weight: bold; color: #70AD47;">${CONSTANTS.drTimiClinics} clinics</div>
-                    <div style="font-size: 14px; color: #7FAECD;">$${(CONSTANTS.drTimiEBITDA / 1000).toFixed(0)}K EBITDA</div>
+                    <div style="font-size: 14px; color: #7FAECD;">$${(CONSTANTS.drTimiCashFlow / 1000).toFixed(0)}K Cash Flow</div>
                 </div>
                 <div>
                     <div class="metric-label">New Acquisitions</div>
                     <div style="font-size: 20px; font-weight: bold; color: #4A90D9;">${metrics.newClinics} clinics</div>
-                    <div style="font-size: 14px; color: #7FAECD;">${formatMoney(metrics.newClinicsEBITDA)} EBITDA</div>
+                    <div style="font-size: 14px; color: #7FAECD;">${formatMoney(metrics.newClinicsCashFlow)} Cash Flow</div>
                 </div>
                 <div>
                     <div class="metric-label">Total Portfolio</div>
                     <div style="font-size: 20px; font-weight: bold; color: #F0A500;">${metrics.numClinics} clinics</div>
-                    <div style="font-size: 14px; color: #7FAECD;">${formatMoney(metrics.totalEBITDA)} EBITDA</div>
+                    <div style="font-size: 14px; color: #7FAECD;">${formatMoney(metrics.totalCashFlow)} Cash Flow</div>
                 </div>
             `;
             document.getElementById('portfolioComposition').innerHTML = compHTML;
@@ -360,10 +393,104 @@
             `;
             document.getElementById('waterfallContent').innerHTML = waterfallHTML;
 
-            document.getElementById('exitTitle').textContent = `Exit Value Analysis (${metrics.exitMultiple}x EBITDA)`;
+            const metricsTableHTML = `
+                <h3 style="margin: 30px 0 15px 0; color: #FFFFFF;">Performance Metrics by Growth Scenario</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #4A90D9;">
+                            <th style="padding: 12px; text-align: left; color: #D0DCE8;">Metric</th>
+                            <th style="padding: 12px; text-align: center; color: #F0A500;">5% Growth</th>
+                            <th style="padding: 12px; text-align: center; color: #F0A500;">10% Growth</th>
+                            <th style="padding: 12px; text-align: center; color: #F0A500;">15% Growth</th>
+                            <th style="padding: 12px; text-align: center; color: #F0A500;">20% Growth</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailedMetrics">
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('waterfallContent').innerHTML += metricsTableHTML;
+            
+            const rates = [5, 10, 15, 20];
+            let tableRows = '';
+            
+            tableRows += '<tr style="border-bottom: 1px solid #2D3748;"><td style="padding: 12px; color: #FFFFFF;">NPV</td>';
+            rates.forEach(rate => {
+                const g = rate / 100;
+                const year1 = metrics.totalCashFlow * (1 + g);
+                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year3 = year2 * (1 + g);
+                const year4 = year3 * (1 + g);
+                const year5 = year4 * (1 + g);
+                
+                const discountRate = 0.20;
+                const npv = -CONSTANTS.fundSize + 
+                    year1 / Math.pow(1 + discountRate, 1) +
+                    year2 / Math.pow(1 + discountRate, 2) +
+                    year3 / Math.pow(1 + discountRate, 3) +
+                    year4 / Math.pow(1 + discountRate, 4) +
+                    year5 / Math.pow(1 + discountRate, 5);
+                
+                tableRows += `<td style="padding: 12px; text-align: center; color: #70AD47;">${formatMoney(npv)}</td>`;
+            });
+            tableRows += '</tr>';
+            
+            tableRows += '<tr style="border-bottom: 1px solid #2D3748;"><td style="padding: 12px; color: #FFFFFF;">IRR</td>';
+            rates.forEach(rate => {
+                const g = rate / 100;
+                const year1 = metrics.totalCashFlow * (1 + g);
+                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year3 = year2 * (1 + g);
+                const year4 = year3 * (1 + g);
+                const year5 = year4 * (1 + g);
+                
+                const cashFlowsForIRR = [-CONSTANTS.fundSize, year1, year2, year3, year4, year5];
+                const irr = calculateIRR(cashFlowsForIRR);
+                tableRows += `<td style="padding: 12px; text-align: center; color: #9B59B6; font-weight: bold;">${formatPercent(irr * 100)}</td>`;
+            });
+            tableRows += '</tr>';
+            
+            tableRows += '<tr style="border-bottom: 1px solid #2D3748;"><td style="padding: 12px; color: #FFFFFF;">LP/GP</td>';
+            rates.forEach(rate => {
+                const g = rate / 100;
+                const year1 = metrics.totalCashFlow * (1 + g);
+                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year3 = year2 * (1 + g);
+                const year4 = year3 * (1 + g);
+                const year5 = year4 * (1 + g);
+                
+                const cashFlowsForIRR = [-CONSTANTS.fundSize, year1, year2, year3, year4, year5];
+                const irr = calculateIRR(cashFlowsForIRR);
+                const lpGpRatio = irr * 0.51;
+                
+                tableRows += `<td style="padding: 12px; text-align: center; color: #4A90D9; font-weight: bold;">${formatPercent(lpGpRatio * 100)}</td>`;
+            });
+            tableRows += '</tr>';
+            
+            tableRows += '<tr><td style="padding: 12px; color: #FFFFFF;">Annual return LP</td>';
+            rates.forEach(rate => {
+                const g = rate / 100;
+                const year1 = metrics.totalCashFlow * (1 + g);
+                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year3 = year2 * (1 + g);
+                const year4 = year3 * (1 + g);
+                const year5 = year4 * (1 + g);
+                
+                const cashFlowsForIRR = [-CONSTANTS.fundSize, year1, year2, year3, year4, year5];
+                const irr = calculateIRR(cashFlowsForIRR);
+                const lpGpRatio = irr * 0.51;
+                const annualReturn = lpGpRatio / 2;
+                tableRows += `<td style="padding: 12px; text-align: center; color: #F0A500; font-weight: bold;">${formatPercent(annualReturn * 100)}</td>`;
+            });
+            tableRows += '</tr>';
+            
+            document.getElementById('detailedMetrics').innerHTML = tableRows;
+
+            document.getElementById('exitTitle').textContent = `Exit Value Analysis (${metrics.exitMultiple}x Cash Flow)`;
 
             const exitHTML = [
-                { label: 'Year 5 EBITDA', value: formatMoney(metrics.year5EBITDA), color: '#70AD47' },
+                { label: 'Year 5 Cash Flow', value: formatMoney(metrics.year5CashFlow), color: '#70AD47' },
                 { label: 'Total MSO Value', value: formatMoney(metrics.msoValue), color: '#F0A500' },
                 { label: 'Fund Exit Value (51%)', value: formatMoney(metrics.fundExitValue), color: '#4A90D9' },
                 { label: 'Founding Team Value (49%)', value: formatMoney(metrics.foundingTeamExitValue), color: '#E67E22' }
@@ -392,22 +519,26 @@
 
             const rates = [5, 10, 15, 20];
             
-            // Year 5 EBITDA row
-            tableHTML += '<tr><td style="color: #FFFFFF;">Year 5 EBITDA</td>';
+            tableHTML += '<tr><td style="color: #FFFFFF;">Year 5 Cash Flow</td>';
             rates.forEach(rate => {
-                const year5 = metrics.totalEBITDA * Math.pow(1 + rate/100, 5);
-                tableHTML += `<td style="text-align: center; color: #70AD47;">${formatMoney(year5)}</td>`;
+                const g = rate / 100;
+                const year1 = metrics.totalCashFlow * (1 + g);
+                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year5calc = year2 * Math.pow(1 + g, 3);
+                tableHTML += `<td style="text-align: center; color: #70AD47;">${formatMoney(year5calc)}</td>`;
             });
             tableHTML += '</tr>';
 
-            // LP CoC row
             tableHTML += '<tr><td style="color: #FFFFFF;">LP Cash-on-Cash</td>';
             rates.forEach(rate => {
                 const g = rate / 100;
-                let totalPortfolioCF = 0;
-                for (let year = 1; year <= 5; year++) {
-                    totalPortfolioCF += metrics.totalEBITDA * Math.pow(1 + g, year);
-                }
+                const year1 = metrics.totalCashFlow * (1 + g);
+                const year2 = (metrics.totalCashFlow * g) + year1;
+                const year3 = year2 * (1 + g);
+                const year4 = year3 * (1 + g);
+                const year5 = year4 * (1 + g);
+                const totalPortfolioCF = year1 + year2 + year3 + year4 + year5;
+                
                 const totalFundCF = totalPortfolioCF * CONSTANTS.fundOwnership;
                 const pref = CONSTANTS.fundSize * CONSTANTS.prefRate * 5;
                 const excess = totalFundCF - pref;
@@ -418,10 +549,31 @@
             });
             tableHTML += '</tr>';
 
-            // Exit value row
+            tableHTML += '<tr><td style="color: #FFFFFF;">IRR</td>';
+            rates.forEach(rate => {
+                const g = rate / 100;
+                const year1 = metrics.totalCashFlow * (1 + g);
+                const year2 = year1 * (1 + g);
+                const year3 = year2 * (1 + g);
+                const year4 = year3 * (1 + g);
+                const year5 = year4 * (1 + g);
+                
+                const cashFlowsForIRR = [
+                    -CONSTANTS.fundSize,
+                    year1 * CONSTANTS.fundOwnership,
+                    year2 * CONSTANTS.fundOwnership,
+                    year3 * CONSTANTS.fundOwnership,
+                    year4 * CONSTANTS.fundOwnership,
+                    year5 * CONSTANTS.fundOwnership
+                ];
+                const irr = calculateIRR(cashFlowsForIRR);
+                tableHTML += `<td style="text-align: center; color: #9B59B6; font-weight: bold;">${formatPercent(irr * 100)}</td>`;
+            });
+            tableHTML += '</tr>';
+
             tableHTML += '<tr><td style="color: #FFFFFF;">MSO Exit Value (' + metrics.exitMultiple + 'x)</td>';
             rates.forEach(rate => {
-                const year5 = metrics.totalEBITDA * Math.pow(1 + rate/100, 5);
+                const year5 = metrics.totalCashFlow * Math.pow(1 + rate/100, 5);
                 const msoVal = year5 * metrics.exitMultiple;
                 tableHTML += `<td style="text-align: center; color: #F0A500; font-weight: bold;">${formatMoney(msoVal)}</td>`;
             });
@@ -437,8 +589,8 @@
                     <h4 style="color: #7FAECD; font-size: 14px; margin-bottom: 10px;">Impact Summary</h4>
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         <div style="padding: 12px; background: #0D1B2A; border-radius: 8px;">
-                            <div style="font-size: 12px; color: #D0DCE8;">Total Portfolio EBITDA</div>
-                            <div style="font-size: 20px; font-weight: bold; color: #70AD47;">${formatMoney(metrics.totalEBITDA)}</div>
+                            <div style="font-size: 12px; color: #D0DCE8;">Total Portfolio Cash Flow</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #70AD47;">${formatMoney(metrics.totalCashFlow)}</div>
                         </div>
                         <div style="padding: 12px; background: #0D1B2A; border-radius: 8px;">
                             <div style="font-size: 12px; color: #D0DCE8;">LP Returns (distributions only)</div>
@@ -452,20 +604,20 @@
             const contingencyHTML = `
                 <div style="padding: 15px; background: #0D1B2A; border-radius: 8px; border: 2px solid #70AD47;">
                     <div style="font-size: 14px; color: #D0DCE8; margin-bottom: 10px;">$1.1M Cash Target</div>
-                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Required: 22% annual growth</div>
-                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Year 3 Target: $1,579,561</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 5px;">Required: 22% annual growth</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 5px;">Year 3 EBITDA Target: $1,579,561</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Current Growth: ${(metrics.growthRate * 100).toFixed(0)}%</div>
                     <div style="font-size: 18px; font-weight: bold; color: ${metrics.growthRate >= 0.22 ? '#70AD47' : '#E67E22'};">
-                        Current: ${(metrics.growthRate * 100).toFixed(0)}% growth
-                        ${metrics.growthRate >= 0.22 ? ' ✓' : ' (Below target)'}
+                        ${metrics.growthRate >= 0.22 ? '✓ ON TRACK' : '⚠ BELOW TARGET'}
                     </div>
                 </div>
                 <div style="padding: 15px; background: #0D1B2A; border-radius: 8px; border: 2px solid #E67E22;">
                     <div style="font-size: 14px; color: #D0DCE8; margin-bottom: 10px;">$1.1M Earnout Target</div>
-                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Required: 41% annual growth</div>
-                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Year 3 Target: $2,438,452</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 5px;">Required: 41% annual growth</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 5px;">Year 3 EBITDA Target: $2,438,452</div>
+                    <div style="font-size: 12px; color: #7FAECD; margin-bottom: 10px;">Current Growth: ${(metrics.growthRate * 100).toFixed(0)}%</div>
                     <div style="font-size: 18px; font-weight: bold; color: ${metrics.growthRate >= 0.41 ? '#70AD47' : '#E67E22'};">
-                        Current: ${(metrics.growthRate * 100).toFixed(0)}% growth
-                        ${metrics.growthRate >= 0.41 ? ' ✓' : ' (Below target)'}
+                        ${metrics.growthRate >= 0.41 ? '✓ ON TRACK' : '⚠ BELOW TARGET'}
                     </div>
                 </div>
             `;
@@ -473,13 +625,11 @@
         }
 
         function updateCalculations() {
-            // Update displays
             document.getElementById('growthDisplay').textContent = document.getElementById('growthRate').value;
             document.getElementById('clinicsDisplay').textContent = document.getElementById('numClinics').value;
             document.getElementById('cfDisplay').textContent = document.getElementById('cfPerClinic').value;
             document.getElementById('exitDisplay').textContent = document.getElementById('exitMultiple').value;
 
-            // Sync simulator inputs
             document.getElementById('simClinics').value = document.getElementById('numClinics').value;
             document.getElementById('simCF').value = parseInt(document.getElementById('cfPerClinic').value) * 1000;
 
@@ -499,7 +649,6 @@
             event.target.classList.add('active');
         }
 
-        // Initialize on load
         window.onload = function() {
             updateCalculations();
         };
